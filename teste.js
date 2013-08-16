@@ -126,15 +126,37 @@ World.prototype.addSystem = function(system) {
 
 //--------------------
 /**
- * 
+ * MovementSystem
  **/
-var MovementSystem = function(){};
+var MovementSystem = function(){
+  this._worldBox = null;
+};
 
 MovementSystem.prototype.addToWorld = function() {};
 
 MovementSystem.prototype.removeFromWorld = function () {};
 
 MovementSystem.prototype.step = function(delta, entities) {
+
+  if(!this._worldBox) {
+    for (var i=0, ent; ent=entities[i]; i++) {
+      if(ent.has('worldBox')) {
+        this._worldBox = ent;
+        break;
+      }
+    }
+    if(!this._worldBox) {
+      return;
+    }
+  } else {
+    if(!this._worldBox.has('worldBox')) {
+      this._worldBox = null;
+      return;
+    }
+  }
+  
+  var box = this._worldBox.get('worldBox');
+
   var dt = delta / 1000;
   for (var i=0, ent; ent=entities[i]; i++) {
     if(!this._acceptEntity(ent)) continue;
@@ -142,8 +164,27 @@ MovementSystem.prototype.step = function(delta, entities) {
     var v = ent.get('velocidade');
     var p = ent.get('posicao');
     
-    p.x = p.x + v.x * dt;
-    p.y = p.y + v.y * dt;
+    var px = p.x + v.x * dt;
+    var py = p.y + v.y * dt;
+    
+    if( px < box.left ) { 
+      px = box.left;
+      v.x = -v.x;
+    } else if ( px > box.right) {
+      px = box.right;
+      v.x = -v.x;
+    }
+    
+    if( py < box.top ) { 
+      py = box.top;
+      v.y = -v.y;
+    } else if ( py > box.bottom) {
+      py = box.bottom;
+      v.y = -v.y;
+    }
+    
+    p.x = px;
+    p.y = py;
   }
 };
 
@@ -153,7 +194,7 @@ MovementSystem.prototype._acceptEntity = function(ent) {
 
 //--------------------
 /**
- * 
+ * DisplaySystem
  **/
 var DisplaySystem = function(){
   this.stage = null;
@@ -204,58 +245,95 @@ DisplaySystem.prototype._acceptEntity = function(ent) {
 
 //--------------------
 /**
+ * EntityFactory
+ **/
+var EntityFactory = function(world){
+  this._world = world;
+};
+
+EntityFactory.prototype.createBall = function(px, py, vx, vy, color) {
+  px = px||0;
+  py = py||0;
+  vx = vx||0;
+  vy = vy||0;
+  var world = this._world;
+  var entity = world.createEntity();
+  entity.add('velocidade', { x:vx, y: vy} );
+  entity.add('posicao', { x:px, y:py } );
+  entity.add('display', { displayObject: this._createCircleShape(color) }); 
+  
+  world.addEntity(entity);
+};
+
+EntityFactory.prototype.createWorldBox = function(top, bottom, left, right) {
+  top = top || 0;
+  bottom = bottom || 240;
+  left = left || 0;
+  right = right || 320;
+  
+  var world = this._world;
+  var entity = world.createEntity();
+  entity.add('worldBox', { top:top, bottom:bottom, left:left, right:right } );
+  
+  world.addEntity(entity);
+};
+
+EntityFactory.prototype._createCircleShape = function(color) {
+  color = color||'red';
+  var circle = new createjs.Shape();
+  
+  circle.graphics.beginFill(color).drawCircle(0, 0, 10);
+  circle.x = 100;
+  circle.y = 100;
+  
+  return circle;
+};
+
+//--------------------
+/**
  * Main
  **/
 
 var main = function() {
+  
+    var fpsDiv = document.getElementById('fps');
+
     var world = new World();
+    var factory = new EntityFactory(world);
     
     world.addSystem( new MovementSystem() );
     world.addSystem( new DisplaySystem() );
     
-    var entity = world.createEntity();
-    entity.add('velocidade', { x:100, y: 50} );
-    entity.add('posicao', {x:0, y:0} );
-
-    var circle = new createjs.Shape();
-    circle.graphics.beginFill("red").drawCircle(0, 0, 10);
-    circle.x = 100;
-    circle.y = 100;    
+    factory.createWorldBox();
     
-    entity.add('display', { displayObject: circle }); 
-    
-    world.addEntity(entity);
+    var colors = ['red','blue','green','black','orange'];
+    for(var i = 0; i<250; i++ ) {
+      factory.createBall(
+          20*Math.random(), 
+          20*Math.random(),
+          55 + 45*Math.random(), 
+          55 + 45*Math.random(),
+          colors[i%5]
+      );
+    }
     
     createjs.Ticker.addEventListener('tick', tick);
     createjs.Ticker.useRAF = true;
-    createjs.Ticker.setFPS = 60;
-    //function tick(event) { 
-    //  world.step(event.delta);
-    
-    //};
-    
-    var stage, circle;
-    stage = new createjs.Stage("canvas");
-    
-    circle = new createjs.Shape();
-    circle.graphics.beginFill("red").drawCircle(0, 0, 40);
-    circle.y = 50;
-    stage.addChild(circle);
-  	
-		function tick(event) {
-			circle.x = circle.x + 5;
-			if (circle.x > stage.canvas.width) { circle.x = 0; }
-			stage.update(event); // important!!
-		}
-    
-    //for( var i=0, step; step = steps[i]; i++ ) {
-    //  world.step(step);
-      
-    //  var p = entity.get('posicao');
-    //  alert('[pos x=' + p.x + ', y=' + p.y + ']');
-    //}
+    createjs.Ticker.setFPS(60);
+    function tick(event) { 
+      if(!event.paused) {
+        world.step(event.delta);
+      }
+      fpsDiv.innerHTML = String( createjs.Ticker.getMeasuredFPS() );
+    };
 };
 
+var pause = function() {
+  var paused = createjs.Ticker.getPaused();
+  createjs.Ticker.setPaused(!paused);
+}
+
 root.Teste.main = main;
+root.Teste.pause = pause;
 
 })(this);
