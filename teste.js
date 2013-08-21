@@ -1,128 +1,7 @@
+
 this.Teste = this.Teste || {};
 
 (function(root){
-
-//--------------------
-/**
- * Entity
- **/
-var Entity = function(id, entityManager){
-  this._em = entityManager;
-  this.id = id;
-  
-  this._components = {};
-};
-
-/**
- * add( {string}, {object} )
- **/
-Entity.prototype.add = function(name, component){
-  this._components[name] =  component;
-};
-
-/**
- * get( {string} ) -> {object}
- **/
-Entity.prototype.get = function(name){
-  return this._components[name];
-};
-
-/**
- * has( {string} ) -> {boolean}
- **/
-Entity.prototype.has = function(name){
-  return !!this._components[name];
-};
-
-/**
- * toString() -> {string}
- **/
-Entity.prototype.toString = function(){
-  return '[Entity id=' + this.id + ']';
-};
-
-//--------------------
-/**
- * IdentifierPool
- **/
-var IdentifierPool = function(){
-  this._ids = [];
-  this._nextID = 0;
-};
-
-/**
- * get() -> {int}
- **/
-IdentifierPool.prototype.get = function(){
-  return this._ids.length > 0 ?
-         this._ids.pop() :
-         this._nextID++;
-}
-
-/**
- * giveBack({int})
- **/
-IdentifierPool.prototype.giveBack = function(id){
-  this._ids.push(id);
-}
-
-//--------------------
-/**
- * EntityManager
- **/
-var EntityManager = function(){
-  this._componentMappers = {};
-  this._idPool = new IdentifierPool();
-};
-
-/**
- * createEntity() -> {Entity}
- **/
-EntityManager.prototype.createEntity = function(){
-  return new Entity(this._idPool.get(), this);
-};
-
-//--------------------
-/**
- * World
- **/
-var World = function(){
-  this._systems = [];
-  this._ents = [];
-  this._em = new EntityManager();
-};
-
-/**
- * createEntity -> {Entity}
- **/
-World.prototype.createEntity = function(){
-  return this._em.createEntity();
-};
-
-/**
- * addEntity( {Entity} )
- **/
-World.prototype.addEntity = function(entity){
-  return this._ents.push(entity);
-};
-
-/**
- * step( {number} )
- **/
-World.prototype.step = function(delta) {
-  var systems = this._systems;
-  for(var i=0, sys; sys=systems[i]; i++ ) {
-    sys.step && sys.step(delta, this._ents);
-  }
-}
-
-/**
- * addSystem( {object} )
- **/
-World.prototype.addSystem = function(system) {
-  this._systems.push(system);
-  system.addToWorld();
-}
 
 //--------------------
 /**
@@ -130,11 +9,13 @@ World.prototype.addSystem = function(system) {
  **/
 var MovementSystem = function(){
   this._worldBox = null;
+  System.prototype.init.call(this);
 };
+System.inherits(MovementSystem);
 
-MovementSystem.prototype.addToWorld = function() {};
+MovementSystem.prototype.addToWorld = function(world) {};
 
-MovementSystem.prototype.removeFromWorld = function () {};
+MovementSystem.prototype.removeFromWorld = function (world) {};
 
 MovementSystem.prototype.step = function(delta, entities) {
 
@@ -294,38 +175,54 @@ EntityFactory.prototype._createCircleShape = function(color) {
  * Main
  **/
 
+var preload = function(script) 
+{
+   var head= document.getElementsByTagName('head')[0];
+   var script= document.createElement('script');
+   script.type= 'text/javascript';
+   script.src= script;
+   script.onload = script.onreadystatechange = function () {
+      alert("Script is ready!");
+      //alert(this.readyState);
+      //if (this.readyState == 'complete') alert('complete');
+   }
+   head.appendChild(script);
+};
+ 
 var main = function() {
-  
-    var fpsDiv = document.getElementById('fps');
 
-    var world = new World();
-    var factory = new EntityFactory(world);
-    
-    world.addSystem( new MovementSystem() );
-    world.addSystem( new DisplaySystem() );
-    
-    factory.createWorldBox();
-    
-    var colors = ['red','blue','green','black','orange'];
-    for(var i = 0; i<250; i++ ) {
-      factory.createBall(
-          20*Math.random(), 
-          20*Math.random(),
-          55 + 45*Math.random(), 
-          55 + 45*Math.random(),
-          colors[i%5]
-      );
+  preload('src/teste.js');
+
+  var fpsDiv = document.getElementById('fps');
+
+  var world = new World();
+  var factory = new EntityFactory(world);
+  
+  world.addSystem( new MovementSystem() );
+  world.addSystem( new DisplaySystem() );
+  
+  factory.createWorldBox();
+  
+  var colors = ['red','blue','green','black','orange'];
+  for(var i = 0; i<250; i++ ) {
+    factory.createBall(
+        20*Math.random(), 
+        20*Math.random(),
+        55 + 45*Math.random(), 
+        55 + 45*Math.random(),
+        colors[i%5]
+    );
+  }
+  
+  createjs.Ticker.addEventListener('tick', tick);
+  createjs.Ticker.useRAF = true;
+  createjs.Ticker.setFPS(60);
+  function tick(event) { 
+    if(!event.paused) {
+      world.step(event.delta);
     }
-    
-    createjs.Ticker.addEventListener('tick', tick);
-    createjs.Ticker.useRAF = true;
-    createjs.Ticker.setFPS(60);
-    function tick(event) { 
-      if(!event.paused) {
-        world.step(event.delta);
-      }
-      fpsDiv.innerHTML = String( createjs.Ticker.getMeasuredFPS() );
-    };
+    fpsDiv.innerHTML = String( createjs.Ticker.getMeasuredFPS() );
+  };
 };
 
 var pause = function() {
