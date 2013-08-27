@@ -1,0 +1,1 @@
+var root=this;(function(){var a=function(b,a){this._em=a;this.id=b;this._components={}};a.prototype.add=function(a,c){this._components[a]=c};a.prototype.get=function(a){return this._components[a]};a.prototype.has=function(a){return!!this._components[a]};a.prototype.toString=function(){return"[Entity id="+this.id+"]"};root.Entity=a})();
